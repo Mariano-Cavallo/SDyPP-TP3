@@ -1,0 +1,37 @@
+services:
+  rabbitmq:
+    image: rabbitmq:management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+
+  centralizador:
+    build: ./centralizador
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - N_WORKERS=${N_WORKERS}
+      - IMAGE_PATH=${IMAGE_PATH}
+      - OUTPUT_PATH=${OUTPUT_PATH:-/app/output_dir/output.jpg}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./imagenes:/app/imagenes:ro
+      - ./imagenes:/app/output_dir 
+
+  worker:
+    build: ./worker
+    deploy:
+      replicas: ${N_WORKERS}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - PYTHONUNBUFFERED=1

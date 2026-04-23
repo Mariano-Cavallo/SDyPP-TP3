@@ -1,0 +1,14 @@
+# Usar una imagen base de Python
+FROM python:3.11-slim
+
+# Setear directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos
+COPY consumer.py .
+
+# Instalar dependencias
+RUN pip install --no-cache-dir pika
+
+# Comando por defecto
+CMD ["python", "consumer.py"]
