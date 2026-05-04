@@ -248,7 +248,7 @@ docker compose up --build
 Estos patrones servirán como base para el procesamiento distribuido de imágenes:
 
 - **Message Queue**: Distribuir tareas de procesamiento de imágenes entre workers
-- **Pub/Sub**: Notificar a múltiples servicios cuando una imagen está lista
+- **Pub/Sub**: Notificar a múltiples servicios cuando una imagen está lista (futura mejora)
 - **DLQ**: Manejar imágenes corruptas o formatos no soportados
 - **Retry Backoff**: Reintentar procesamiento ante fallos temporales de almacenamiento o red
 
