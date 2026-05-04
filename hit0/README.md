@@ -176,15 +176,24 @@ docker compose up --build
 
 ## Diferencias entre los Patrones
 
-| Característica | Patrón 1: Message Queue | Patrón 2: Pub/Sub Fanout | Patrón 3: DLQ | Patrón 4: Retry Backoff |
-|----------------|-------------------------|--------------------------|---------------|-------------------------|
-| **Tipo de comunicación** | Punto a punto (competing consumers) | Broadcast (uno a muchos) | Punto a punto (competing consumers) | Punto a punto (competing consumers) |
-| **Destinatarios** | Múltiples consumers compiten por mensajes | Múltiples consumers (cada uno recibe todos los mensajes) | Múltiples consumers compiten por mensajes | Múltiples consumers compiten por mensajes |
-| **Manejo de errores** | No (requeue simple) | No (requeue simple) | Sí (envía a DLQ) | Sí (reintenta + DLQ) |
-| **Reintentos** | No | No | No | Sí (con backoff exponencial) |
-| **Dead Letter Queue** | No | No | Sí | Sí |
-| **Exchange utilizado** | Direct (vacío) | Fanout | Direct + DLX | Direct + DLX |
-| **Persistencia de errores** | No | No | Sí (en DLQ) | Sí (en DLQ) |
+### Comunicación y distribución
+
+| Característica    | Message Queue       | Pub/Sub Fanout         | DLQ                 | Retry Backoff       |
+| ----------------- | ------------------- | ---------------------- | ------------------- | ------------------- |
+| **Tipo**          | Punto a punto       | Broadcast              | Punto a punto       | Punto a punto       |
+| **Destinatarios** | Competing consumers | Todos reciben mensajes | Competing consumers | Competing consumers |
+| **Exchange**      | Direct              | Fanout                 | Direct + DLX        | Direct + DLX        |
+
+---
+
+### Manejo de errores
+
+| Característica           | Message Queue | Pub/Sub Fanout | DLQ         | Retry Backoff         |
+| ------------------------ | ------------- | -------------- | ----------- | --------------------- |
+| **Manejo de errores**    | Requeue       | Requeue        | Envío a DLQ | Retry + DLQ           |
+| **Reintentos**           | ❌             | ❌              | ❌           | ✅ Backoff exponencial |
+| **Dead Letter Queue**    | ❌             | ❌              | ✅           | ✅                     |
+| **Persistencia errores** | ❌             | ❌              | ✅           | ✅                     |
 
 ---
 
