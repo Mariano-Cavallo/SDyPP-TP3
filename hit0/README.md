@@ -61,10 +61,10 @@ docker compose up --build
 ### Patrón 1: Message Queue (Cola de Mensajes)
 
 ```
-┌──────────┐     publish      ┌──────────┐     consume     ┌──────────┐
+┌──────────┐     publish      ┌──────────┐     consume      ┌──────────┐
 │ Producer │ ───────────────► │          │ ───────────────► │ Consumer │
 └──────────┘                  │  Queue   │                  └──────────┘
-                              │          │     consume     ┌──────────┐
+                              │          │     consume      ┌──────────┐
                               └──────────┘ ───────────────► │ Consumer │
                                                      │      └──────────┘
                                                      │      ┌──────────┐
@@ -109,41 +109,24 @@ docker compose up --build
 ### Patrón 3: Dead Letter Queue (Cola de Mensajes Muertos)
 
 ```
-┌──────────┐     publish      ┌──────────┐     consume     ┌──────────┐
-│ Producer │ ───────────────► │          │ ───────────────► │ Consumer │
-└──────────┘                  │  Queue   │                  └──────────┘
-                              │          │     consume     ┌──────────┐
-                              └──────────┘ ───────────────► │ Consumer │
-                                                     │      └──────────┘
-                                   nack               │      ┌──────────┐
-                                   (requeue=False)    └─────►│ Consumer │
-                                                            └──────────┘
-                                   ▼
-                             ┌──────────┐
-                             │   DLX    │
-                             │ (Exchange)│
-                             └────┬─────┘
-                                  │
-                                  ▼
-                            ┌──────────┐     consume     ┌──────────┐
-                            │   DLQ    │ ───────────────► │Consumer  │
-                            │ (errores)│                  │   DLQ    │
-                            └──────────┘                  └──────────┘
-```
-┌──────────┐     publish      ┌──────────┐     consume      ┌──────────┐
-│ Producer │ ───────────────► │  Queue   │ ───────────────► │ Consumer │
-└──────────┘                  └──────────┘                  └────┬─────┘
-                                   │                             │
-                                   │ nack (requeue=False)        │
-                                   ▼                             │
-                             ┌──────────┐                        │
-                             │   DLX    │ ◄──────────────────────┘
-                             │(Exchange)│
+┌──────────┐     publish      ┌──────────┐     consume        ┌──────────┐
+│ Producer │ ───────────────► │          │ ─────────────────► │ Consumer │───│
+└──────────┘                  │  Queue   │                    └──────────┘   │
+                              │          │     consume        ┌──────────┐   │
+                              └──────────┘ ─────────────────► │ Consumer │───│
+                                   │                   │      └──────────┘   │
+                                   │   nack            │       ┌──────────┐  │
+                                   │  (requeue=False)  └──────►│ Consumer │──│
+                                   │                           └──────────┘  │
+                                   ▼                                         │ 
+                             ┌──────────┐                                    │
+                             │   DLX    │                                    │
+                             │(Exchange)│◄───────────────────────────────────┘
                              └────┬─────┘
                                   │
                                   ▼
                             ┌──────────┐     consume      ┌──────────┐
-                            │   DLQ    │ ───────────────► │ Consumer │
+                            │   DLQ    │ ───────────────► │Consumer  │
                             │ (errores)│                  │   DLQ    │
                             └──────────┘                  └──────────┘
 ```
@@ -158,49 +141,30 @@ docker compose up --build
 ### Patrón 4: Retry with Backoff (Reintentos con Retroceso)
 
 ```
-┌──────────┐     publish      ┌──────────┐     consume     ┌──────────┐
-│ Producer │ ───────────────► │          │ ───────────────► │ Consumer │
-└──────────┘                  │  Queue   │                  └──────────┘
-                              │          │     consume     ┌──────────┐
-                              └──────────┘ ───────────────► │ Consumer │
-                                                     │      └──────────┘
-                                   ▲                  │      ┌──────────┐
-                                   │                  └─────►│ Consumer │
-                                   │                         └──────────┘
-                                   │ retry < max
-                                   │ (con delay)
-                                   ▼
-                             ┌──────────┐                  ┌──────────┐
-                             │   DLX    │                  │ Retry    │
-                             │ (Exchange)│◄────────────────│  Queue   │
-                             └────┬─────┘                  └──────────┘
-                                  │
-                                  │ retry >= max
-                                  ▼
-                            ┌──────────┐     consume     ┌──────────┐
-                            │   DLQ    │ ───────────────► │Consumer  │
-                            │ (errores)│                  │   DLQ    │
-                            └──────────┘                  └──────────┘
-```
-┌──────────┐     publish      ┌──────────┐     consume      ┌──────────┐
-│ Producer │ ───────────────► │  Queue   │ ───────────────► │ Consumer │
-└──────────┘                  └──────────┘                  └────┬─────┘
-                                   ▲                             │
-                                   │                             │ retry < max
-                                   │                             │ (con delay)
-                                   │                             ▼
-                             ┌──────────┐                  ┌──────────┐
-                             │   DLX    │                  │  Retry   │
-                             │(Exchange)│◄──────────────── │  Queue   │
+┌──────────┐     publish      ┌──────────┐     consume       ┌──────────┐
+│ Producer │ ───────────────► │          │ ───────────────►  │ Consumer │─│
+└──────────┘                  │  Queue   │                   └──────────┘ │
+                              │          │     consume       ┌──────────┐ │
+                              └──────────┘ ───────────────►  │ Consumer │─│
+                                                      │      └──────────┘ │
+                                   ▲                  │      ┌──────────┐ │
+                                   │                  └─────►│ Consumer │─│
+                                   │                         └──────────┘ │
+                                   │                                      │ retry < max
+                                   │                                      │ (con delay)
+                                   ▼                                      │
+                             ┌──────────┐                  ┌──────────┐   │
+                             │   DLX    │                  │ Retry    │   │
+                             │(Exchange)│◄─────────────────│  Queue   │◄──┘
                              └────┬─────┘                  └──────────┘
                                   │
                                   │ retry >= max
                                   ▼
                             ┌──────────┐     consume      ┌──────────┐
-                            │   DLQ    │ ───────────────► │ Consumer │
-                            │(errores) │                  │   DLQ    │
+                            │   DLQ    │ ───────────────► │Consumer  │
+                            │ (errores)│                  │   DLQ    │
                             └──────────┘                  └──────────┘
-```
+
 
 **Características:**
 - Reintenta procesar mensajes fallidos con backoff exponencial
