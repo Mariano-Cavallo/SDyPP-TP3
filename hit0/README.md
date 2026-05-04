@@ -165,7 +165,7 @@ docker compose up --build
                             │ (errores)│                  │   DLQ    │
                             └──────────┘                  └──────────┘
 
-
+```
 **Características:**
 - Reintenta procesar mensajes fallidos con backoff exponencial
 - Delay: 2^(retry-1) * 1000 ms
