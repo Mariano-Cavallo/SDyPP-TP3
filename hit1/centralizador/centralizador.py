@@ -23,11 +23,36 @@ def conectar():
 
 
 # partir el array en partes para mandar por RabbitMQ
-def partir_imagen(path, n):
-    img = Image.open(path).convert("L")  # escala de grises
+def partir_imagen(path, n, overlap):
+    img = Image.open(path).convert("L")
     array = np.array(img)
-    pedazos = np.array_split(array, n, axis=0)
-    print(f"Imagen partida en {n} pedazos. Shape original: {array.shape}")
+    altura = array.shape[0]
+    
+    tamanio_pedazo = altura // n
+    pedazos = []
+    
+    for i in range(n):
+        inicio = i * tamanio_pedazo
+        fin = (i + 1) * tamanio_pedazo
+        
+        # Agregar superposición (excepto en los extremos)
+        inicio_con_overlap = max(0, inicio - overlap)
+        fin_con_overlap = min(altura, fin + overlap)
+        
+        pedazo = array[inicio_con_overlap:fin_con_overlap]
+        
+        pedazos.append({
+            "id": i,
+            "pedazo": pedazo,
+            "inicio_real": inicio,
+            "fin_real": fin,
+            "inicio_con_overlap": inicio_con_overlap,
+            "fin_con_overlap": fin_con_overlap,
+            "overlap_inferior": fin - fin_con_overlap,
+            "overlap_superior": inicio - inicio_con_overlap
+        })
+        
+    print(f"Imagen partida en {n} pedazos con overlap={overlap}. Shape original: {array.shape}")
     return pedazos
 
 
@@ -37,34 +62,52 @@ def partir_imagen(path, n):
 def publicar_pedazos(channel, pedazos):
     total = len(pedazos)
 
-    for i, pedazo in enumerate(pedazos):
+    for pedazo_info in pedazos:
 
         # serializar el array a bytes
         buffer = io.BytesIO()
-        np.save(buffer, pedazo)
+        np.save(buffer, pedazo_info["pedazo"])
         datos_bytes = buffer.getvalue()
 
         # armar el mensaje completo
-        mensaje = {"pedazo_id": i, "total_pedazos": total, "datos": datos_bytes}
+        mensaje = {
+            "pedazo_id": pedazo_info["id"],
+            "total_pedazos": total,
+            "datos": datos_bytes,
+            "inicio_real": pedazo_info["inicio_real"],
+            "fin_real": pedazo_info["fin_real"],
+            "overlap_inferior": pedazo_info["overlap_inferior"],
+            "overlap_superior": pedazo_info["overlap_superior"]
+        }
 
         # serializar el mensaje completo
         channel.basic_publish(
             exchange="", routing_key="pedazos", body=pickle.dumps(mensaje)
         )
-        print(f"Publicado pedazo {i + 1}/{total}")
+        print(f"Publicado pedazo {pedazo_info['id'] + 1}/{total}")
 
 
 def reenviar_pedazos_faltantes(channel, pedazos_faltantes, pedazos):
     total = len(pedazos_faltantes)
 
-    for i in pedazos_faltantes:
+    for pedazo_id in pedazos_faltantes:
+        pedazo_info = pedazos[pedazo_id]
+        
         # serializar el array a bytes
         buffer = io.BytesIO()
-        np.save(buffer, pedazos[i])
+        np.save(buffer, pedazo_info["pedazo"])
         datos_bytes = buffer.getvalue()
 
         # armar el mensaje completo
-        mensaje = {"pedazo_id": i, "datos": datos_bytes}
+        mensaje = {
+            "pedazo_id": pedazo_info["id"],
+            "total_pedazos": total,
+            "datos": datos_bytes,
+            "inicio_real": pedazo_info["inicio_real"],
+            "fin_real": pedazo_info["fin_real"],
+            "overlap_inferior": pedazo_info["overlap_inferior"],
+            "overlap_superior": pedazo_info["overlap_superior"]
+        }
 
         # serializar el mensaje completo
         channel.basic_publish(
@@ -72,11 +115,25 @@ def reenviar_pedazos_faltantes(channel, pedazos_faltantes, pedazos):
         )
 
 
-def unir_resultados(pedazos_recibidos):
-    # ordenar los pedazos por su ID
-    pedazos_ordenados = [pedazos_recibidos[i] for i in sorted(pedazos_recibidos.keys())]
-    # unirlos verticalmente (axis=0)
-    resultado_final = np.vstack(pedazos_ordenados)
+def unir_resultados(pedazos_recibidos, overlap):
+    # ordenar los pedazos por su inicio_real (posición original)
+    pedazos_ordenados = sorted(pedazos_recibidos.values(), key=lambda x: x["inicio_real"])
+    
+    # Recortar la superposición de cada pedazo y unirlos
+    resultados_recortados = []
+    for pedazo_info in pedazos_ordenados:
+        pedazo = pedazo_info["resultado"]
+        overlap_superior = pedazo_info["overlap_superior"]
+        overlap_inferior = pedazo_info["overlap_inferior"]
+        
+        # Recortar la superposición
+        inicio = overlap  # skip pixels from overlap with previous
+        fin = len(pedazo) - overlap  # skip pixels from overlap with next
+        
+        pedazo_recortado = pedazo[inicio:fin]
+        resultados_recortados.append(pedazo_recortado)
+    
+    resultado_final = np.vstack(resultados_recortados)
     return resultado_final
 
 
@@ -86,15 +143,16 @@ def main():
     N = int(os.environ.get("N_WORKERS", 4))
     IMAGE_PATH = os.environ.get("IMAGE_PATH", "/app/imagenes/input.jpg")
     OUTPUT_PATH = os.environ.get("OUTPUT_PATH", "/app/output_dir/output.jpg")
+    OVERLAP = int(os.environ.get("OVERLAP", 15))
 
     connection = conectar()
     channel = connection.channel()
 
     # declarar las dos colas
-    channel.queue_declare(queue="")
-    channel.queue_declare(queue="resultados")
+    channel.queue_declare(queue="pedazos", durable=True)
+    channel.queue_declare(queue="resultados", durable=True)
 
-    pedazos = partir_imagen(IMAGE_PATH, N)
+    pedazos = partir_imagen(IMAGE_PATH, N, OVERLAP)
     publicar_pedazos(channel, pedazos)
 
     print("Todos los pedazos publicados. Esperando resultados...")
@@ -118,17 +176,25 @@ def main():
             resultado = pickle.loads(body)
             pedazo_id = resultado["pedazo_id"]
             datos_bytes = resultado["datos"]
+            overlap_inferior = resultado["overlap_inferior"]
+            overlap_superior = resultado["overlap_superior"]
 
             # convertir de vuelta a array
             buffer = io.BytesIO(datos_bytes)
             pedazo_resultado = np.load(buffer)
 
-            pedazos_recibidos[pedazo_id] = pedazo_resultado
+            pedazos_recibidos[pedazo_id] = {
+                "resultado": pedazo_resultado,
+                "inicio_real": resultado["inicio_real"],
+                "fin_real": resultado["fin_real"],
+                "overlap_inferior": overlap_inferior,
+                "overlap_superior": overlap_superior
+            }
             pedazos_faltantes.remove(pedazo_id)
 
             # print(f"Recibido resultado del pedazo {pedazo_id}. Faltan: {len(pedazos_faltantes)}")
 
-    array_resultado = unir_resultados(pedazos_recibidos)
+    array_resultado = unir_resultados(pedazos_recibidos, OVERLAP)
     print("Todos los resultados recibidos. Imagen procesada.")
     img_resultado = Image.fromarray(array_resultado)
     img_resultado.save(OUTPUT_PATH)

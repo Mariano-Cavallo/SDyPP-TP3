@@ -67,7 +67,14 @@ def procesar_mensaje(ch, method, properties, body):
         buffer_resultado = io.BytesIO()
         np.save(buffer_resultado, pedazo_resultado)
 
-        respuesta = {"pedazo_id": pedazo_id, "datos": buffer_resultado.getvalue()}
+        respuesta = {
+            "pedazo_id": pedazo_id,
+            "datos": buffer_resultado.getvalue(),
+            "inicio_real": data["inicio_real"],
+            "fin_real": data["fin_real"],
+            "overlap_inferior": data["overlap_inferior"],
+            "overlap_superior": data["overlap_superior"]
+        }
 
         ch.basic_publish(
             exchange="", routing_key="resultados", body=pickle.dumps(respuesta)
@@ -87,7 +94,7 @@ def main():
     channel.basic_qos(prefetch_count=1)
 
     # Declara la cola (si no existe, la crea)
-    channel.queue_declare(queue="pedazos")
+    channel.queue_declare(queue="pedazos", durable=True)
 
     channel.basic_consume(
         queue="pedazos", on_message_callback=procesar_mensaje, auto_ack=False

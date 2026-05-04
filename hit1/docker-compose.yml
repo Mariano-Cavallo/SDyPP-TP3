@@ -20,6 +20,7 @@ services:
       - N_WORKERS=${N_WORKERS}
       - IMAGE_PATH=${IMAGE_PATH}
       - OUTPUT_PATH=${OUTPUT_PATH:-/app/output_dir/output.jpg}
+      - OVERLAP=${OVERLAP:-15}
       - PYTHONUNBUFFERED=1
     volumes:
       - ./imagenes:/app/imagenes:ro
