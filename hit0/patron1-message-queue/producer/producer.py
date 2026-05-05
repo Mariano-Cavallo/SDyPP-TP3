@@ -26,6 +26,7 @@ def main():
 
     # Declara la cola (si no existe, la crea)
     channel.queue_declare(queue="tareas")
+    
     for i in range(1, 200):
         channel.basic_publish(
             exchange="",  # exchange vacío = modo directo a la cola
