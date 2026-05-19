@@ -1,0 +1,31 @@
+# ─── TERRAFORM STATE ───────────────────────────
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.backup
+**/.terraform.lock.hcl
+
+# ─── VALORES SECRETOS ──────────────────────────────────────────
+**/terraform.tfvars        
+
+# ─── CREDENCIALES GCP ──────────────────────────────────────────
+*.json                     # service account keys
+gcp-key.json
+credentials.json
+
+# ─── PYTHON ────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# ─── DOCKER ────────────────────────────────────────────────────
+*.tar                      # imagenes exportadas localmente
+
+# ─── IDE ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.DS_Store
+
+# ─── OTROS ─────────────────────────────────────────────────────
+.claude/
