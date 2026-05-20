@@ -55,12 +55,6 @@ resource "google_service_account" "sobel_worker_sa" {
   project      = var.project_id
 }
 
-resource "google_project_iam_member" "sobel_logging" {
-  project = var.project_id
-  role    = "roles/logging.logWriter"
-  member  = "serviceAccount:${google_service_account.sobel_worker_sa.email}"
-}
-
 # ─── RABBITMQ ──────────────────────────────────────────────────
 resource "google_compute_instance" "rabbitmq" {
   name         = "sobel-rabbitmq"

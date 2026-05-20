@@ -28,7 +28,7 @@ variable "zone" {
 variable "worker_count" {
   description = "Cantidad de VMs worker a crear"
   type        = number
-  default     = 2
+  default     = 1
   validation {
     condition     = var.worker_count >= 1 && var.worker_count <= 20
     error_message = "worker_count debe estar entre 1 y 20."
