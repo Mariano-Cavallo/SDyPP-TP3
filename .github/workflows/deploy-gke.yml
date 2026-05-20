@@ -8,6 +8,7 @@ on:
       - "hit3/centralizador/**"
       - "hit3/dlq-consumer/**"
       - "hit3/k8s/**"
+      - "hit3/terraform/**"
       - "hit4/k8s/**"
       - "hit4/helm/**"
 
