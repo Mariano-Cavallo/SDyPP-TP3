@@ -22,6 +22,8 @@ resource "google_container_node_pool" "infra" {
 
   node_config {
     machine_type = "e2-medium"
+    disk_type    = "pd-standard"
+    disk_size_gb = 30
     labels       = { role = "infra" }
     oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
   }
@@ -36,6 +38,8 @@ resource "google_container_node_pool" "app" {
 
   node_config {
     machine_type = "e2-medium"
+    disk_type    = "pd-standard"
+    disk_size_gb = 30
     labels       = { role = "app" }
     oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
   }
