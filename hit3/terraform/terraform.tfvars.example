@@ -1,0 +1,3 @@
+project_id   = "tu-project-id-gcp"
+region       = "us-central1"
+cluster_name = "sdypp-cluster"

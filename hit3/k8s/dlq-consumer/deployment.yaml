@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dlq-consumer
+  namespace: sobel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dlq-consumer
+  template:
+    metadata:
+      labels:
+        app: dlq-consumer
+    spec:
+      nodeSelector:
+        role: app
+      containers:
+        - name: dlq-consumer
+          image: us-central1-docker.pkg.dev/PROJECT_ID/sobel/dlq-consumer:latest
+          env:
+            - name: RABBITMQ_HOST
+              value: "rabbitmq-clusterip.sobel.svc.cluster.local"
+            - name: MAX_RETRIES
+              value: "3"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"

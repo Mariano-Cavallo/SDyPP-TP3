@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: sobel
+  labels:
+    app: rabbitmq
+spec:
+  # ClusterIP None = headless service, requerido para StatefulSet
+  clusterIP: None
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: management
+      port: 15672
+      targetPort: 15672
+  selector:
+    app: rabbitmq
+---
+# Service adicional con ClusterIP para acceso desde los pods de la app
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-clusterip
+  namespace: sobel
+spec:
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: management
+      port: 15672
+      targetPort: 15672
+  selector:
+    app: rabbitmq

@@ -1,0 +1,105 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "hit2/terraform/**"
+      - "hit3/terraform/**"
+
+env:
+  TF_VERSION: "1.7.0"
+
+jobs:
+  plan-hit2:
+    name: Plan hit2 (VMs GCE)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar en Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init (hit2)
+        working-directory: hit2/terraform
+        run: terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
+
+      - name: Terraform Plan (hit2)
+        id: plan_hit2
+        working-directory: hit2/terraform
+        run: |
+          terraform plan \
+            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -var="rabbitmq_host=${{ secrets.RABBITMQ_HOST }}" \
+            -no-color 2>&1 | tee plan_output.txt
+        continue-on-error: true
+
+      - name: Comentar resultado en PR (hit2)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('hit2/terraform/plan_output.txt', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `#### Terraform Plan — hit2 (VMs GCE) 📋\n\`\`\`\n${output.slice(0, 3000)}\n\`\`\``
+            });
+
+  plan-hit3:
+    name: Plan hit3 (GKE)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar en Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init (hit3)
+        working-directory: hit3/terraform
+        run: terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
+
+      - name: Terraform Plan (hit3)
+        id: plan_hit3
+        working-directory: hit3/terraform
+        run: |
+          terraform plan \
+            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -no-color 2>&1 | tee plan_output.txt
+        continue-on-error: true
+
+      - name: Comentar resultado en PR (hit3)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('hit3/terraform/plan_output.txt', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `#### Terraform Plan — hit3 (GKE) 📋\n\`\`\`\n${output.slice(0, 3000)}\n\`\`\``
+            });

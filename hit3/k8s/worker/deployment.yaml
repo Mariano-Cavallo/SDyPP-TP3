@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: sobel
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      nodeSelector:
+        role: app
+      containers:
+        - name: worker
+          image: us-central1-docker.pkg.dev/PROJECT_ID/sobel/worker:latest
+          env:
+            - name: RABBITMQ_HOST
+              value: "rabbitmq-clusterip.sobel.svc.cluster.local"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          ports:
+            - name: metrics
+              containerPort: 8000

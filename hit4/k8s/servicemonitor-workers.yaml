@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sobel-workers
+  namespace: monitoring
+  labels:
+    # Este label hace que Prometheus Operator lo detecte automáticamente
+    release: kube-prometheus
+spec:
+  namespaceSelector:
+    matchNames:
+      - sobel
+  selector:
+    matchLabels:
+      app: worker
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s

@@ -1,0 +1,74 @@
+# values.yaml para prometheus-community/kube-prometheus-stack
+#
+# Instalación:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   helm install kube-prometheus prometheus-community/kube-prometheus-stack \
+#     --namespace monitoring --create-namespace \
+#     -f hit4/helm/kube-prometheus-stack-values.yaml
+
+grafana:
+  enabled: true
+  adminPassword: "admin123"
+
+  service:
+    type: LoadBalancer
+
+  # Configurar un provider para cargar dashboards desde ConfigMaps
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: "sobel"
+          orgId: 1
+          folder: "Sobel TP3"
+          type: file
+          disableDeletion: false
+          options:
+            path: /var/lib/grafana/dashboards/sobel
+
+  dashboardsConfigMaps:
+    sobel: "sobel-grafana-dashboard"
+
+  nodeSelector:
+    role: infra
+  tolerations:
+    - key: "role"
+      operator: "Equal"
+      value: "infra"
+      effect: "NoSchedule"
+
+prometheus:
+  prometheusSpec:
+    # Scrapear ServiceMonitors de todos los namespaces
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+    nodeSelector:
+      role: infra
+    tolerations:
+      - key: "role"
+        operator: "Equal"
+        value: "infra"
+        effect: "NoSchedule"
+
+    # Retención de métricas
+    retention: 15d
+    retentionSize: "10GB"
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    nodeSelector:
+      role: infra
+    tolerations:
+      - key: "role"
+        operator: "Equal"
+        value: "infra"
+        effect: "NoSchedule"
+
+kube-state-metrics:
+  enabled: true
+
+prometheus-node-exporter:
+  enabled: true

@@ -1,0 +1,58 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sobel-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus
+spec:
+  groups:
+    - name: sobel.workers
+      interval: 30s
+      rules:
+        # Alerta: worker sin respuesta por más de 1 minuto
+        - alert: SobelWorkerDown
+          expr: up{job="sobel-workers"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Worker Sobel sin respuesta"
+            description: "Un worker Sobel ({{ $labels.instance }}) no responde desde hace más de 1 minuto."
+
+        # Alerta: tasa de errores alta (más del 10% de pedazos fallan)
+        - alert: SobelHighErrorRate
+          expr: |
+            rate(sobel_pedazos_fallidos_total[5m])
+            /
+            (rate(sobel_pedazos_procesados_total[5m]) + rate(sobel_pedazos_fallidos_total[5m]))
+            > 0.1
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Tasa de errores alta en workers Sobel"
+            description: "Más del 10% de los pedazos están fallando en los últimos 5 minutos."
+
+    - name: sobel.rabbitmq
+      interval: 30s
+      rules:
+        # Alerta: cola con demasiados mensajes acumulados
+        - alert: RabbitMQQueueHigh
+          expr: rabbitmq_queue_messages_ready{queue="sobel.pedazos"} > 100
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Cola RabbitMQ sobel.pedazos acumulada"
+            description: "La cola sobel.pedazos tiene {{ $value }} mensajes pendientes por más de 5 minutos."
+
+        # Alerta: DLQ con mensajes (indica pedazos fallando persistentemente)
+        - alert: RabbitMQDLQNotEmpty
+          expr: rabbitmq_queue_messages_ready{queue="sobel.dlq"} > 0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Hay mensajes en la Dead Letter Queue"
+            description: "La DLQ sobel.dlq tiene {{ $value }} mensajes. Revisar logs del dlq-consumer."

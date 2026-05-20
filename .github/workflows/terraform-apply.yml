@@ -1,0 +1,69 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "hit2/terraform/**"
+      - "hit3/terraform/**"
+
+env:
+  TF_VERSION: "1.7.0"
+
+jobs:
+  apply-hit2:
+    name: Apply hit2 (VMs GCE)
+    runs-on: ubuntu-latest
+    # Solo se ejecuta si hay cambios en hit2/terraform
+    if: contains(github.event.commits[0].modified, 'hit2/terraform') || contains(github.event.commits[0].added, 'hit2/terraform')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar en Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init (hit2)
+        working-directory: hit2/terraform
+        run: terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
+
+      - name: Terraform Apply (hit2)
+        working-directory: hit2/terraform
+        run: |
+          terraform apply -auto-approve \
+            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -var="rabbitmq_host=${{ secrets.RABBITMQ_HOST }}"
+
+  apply-hit3:
+    name: Apply hit3 (GKE)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar en Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init (hit3)
+        working-directory: hit3/terraform
+        run: terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
+
+      - name: Terraform Apply (hit3)
+        working-directory: hit3/terraform
+        run: |
+          terraform apply -auto-approve \
+            -var="project_id=${{ secrets.GCP_PROJECT_ID }}"

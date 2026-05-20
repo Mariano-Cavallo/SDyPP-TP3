@@ -10,16 +10,15 @@ terraform {
     }
   }
 
-  # Configurar con: terraform init -backend-config="bucket=TU_BUCKET"
-  # O reemplazar "TU_BUCKET_TFSTATE" por el nombre real del bucket GCS
+  # Mismo bucket GCS que hit2, distinto prefix
+  # Reemplazar "TU_BUCKET_TFSTATE" con el nombre real del bucket
   backend "gcs" {
     bucket = "sdpp-tp3-tfstate"
-    prefix = "hit2/state"
+    prefix = "hit3/state"
   }
 }
 
 provider "google" {
   project = var.project_id
   region  = var.region
-  zone    = var.zone
 }

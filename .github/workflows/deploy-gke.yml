@@ -1,0 +1,113 @@
+name: Build & Deploy to GKE
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "hit3/worker/**"
+      - "hit3/centralizador/**"
+      - "hit3/dlq-consumer/**"
+      - "hit3/k8s/**"
+      - "hit4/k8s/**"
+      - "hit4/helm/**"
+
+env:
+  REGION: us-central1
+  REGISTRY: us-central1-docker.pkg.dev
+  REPO: sobel
+
+jobs:
+  build-and-push:
+    name: Build y Push imágenes Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar en Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configurar Docker para Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Build y Push — worker
+        run: |
+          docker build -t ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/worker:${{ github.sha }} \
+                       -t ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/worker:latest \
+                       hit3/worker/
+          docker push ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/worker:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/worker:latest
+
+      - name: Build y Push — centralizador
+        run: |
+          docker build -t ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/centralizador:${{ github.sha }} \
+                       -t ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/centralizador:latest \
+                       hit3/centralizador/
+          docker push ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/centralizador:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/centralizador:latest
+
+      - name: Build y Push — dlq-consumer
+        run: |
+          docker build -t ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/dlq-consumer:${{ github.sha }} \
+                       -t ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/dlq-consumer:latest \
+                       hit3/dlq-consumer/
+          docker push ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/dlq-consumer:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/dlq-consumer:latest
+
+  deploy:
+    name: Deploy a GKE
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar en Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Obtener credenciales kubectl
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
+          location: ${{ env.REGION }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Deploy infraestructura base (namespace, rabbitmq, redis)
+        run: |
+          kubectl apply -f hit3/k8s/namespace.yaml
+          kubectl apply -f hit3/k8s/rabbitmq/
+          kubectl apply -f hit3/k8s/redis/
+
+      - name: Deploy aplicaciones con imagen del commit
+        run: |
+          IMAGE_BASE=${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}
+
+          # Actualizar imagen en los deployments con el SHA del commit
+          sed -i "s|PROJECT_ID|${{ secrets.GCP_PROJECT_ID }}|g" hit3/k8s/worker/deployment.yaml
+          sed -i "s|PROJECT_ID|${{ secrets.GCP_PROJECT_ID }}|g" hit3/k8s/centralizador/deployment.yaml
+          sed -i "s|PROJECT_ID|${{ secrets.GCP_PROJECT_ID }}|g" hit3/k8s/dlq-consumer/deployment.yaml
+
+          kubectl apply -f hit3/k8s/worker/
+          kubectl apply -f hit3/k8s/centralizador/
+          kubectl apply -f hit3/k8s/dlq-consumer/
+
+          # Rolling update con la imagen del commit actual
+          kubectl set image deployment/worker \
+            worker=${IMAGE_BASE}/worker:${{ github.sha }} -n sobel
+          kubectl set image deployment/centralizador \
+            centralizador=${IMAGE_BASE}/centralizador:${{ github.sha }} -n sobel
+          kubectl set image deployment/dlq-consumer \
+            dlq-consumer=${IMAGE_BASE}/dlq-consumer:${{ github.sha }} -n sobel
+
+      - name: Deploy observabilidad (hit4)
+        run: |
+          kubectl apply -f hit4/k8s/ || true
+
+      - name: Verificar rollout
+        run: |
+          kubectl rollout status deployment/worker -n sobel --timeout=120s
+          kubectl rollout status deployment/dlq-consumer -n sobel --timeout=60s

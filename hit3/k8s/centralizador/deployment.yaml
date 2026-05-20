@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: centralizador
+  namespace: sobel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: centralizador
+  template:
+    metadata:
+      labels:
+        app: centralizador
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+        prometheus.io/path: "/metrics"
+    spec:
+      nodeSelector:
+        role: app
+      containers:
+        - name: centralizador
+          image: us-central1-docker.pkg.dev/PROJECT_ID/sobel/centralizador:latest
+          env:
+            - name: RABBITMQ_HOST
+              value: "rabbitmq-clusterip.sobel.svc.cluster.local"
+            - name: N_WORKERS
+              value: "4"
+            - name: IMAGE_PATH
+              value: "/app/imagenes/input.jpg"
+            - name: OUTPUT_PATH
+              value: "/app/output_dir/output.jpg"
+            - name: OVERLAP
+              value: "15"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          ports:
+            - name: metrics
+              containerPort: 8001
