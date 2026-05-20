@@ -82,7 +82,6 @@ jobs:
         run: |
           kubectl apply -f hit3/k8s/namespace.yaml
           kubectl apply -f hit3/k8s/rabbitmq/
-          kubectl apply -f hit3/k8s/redis/
 
       - name: Deploy aplicaciones con imagen del commit
         run: |
