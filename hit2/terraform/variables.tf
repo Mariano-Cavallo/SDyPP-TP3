@@ -55,19 +55,3 @@ variable "docker_image" {
   default     = "marianocavallo/sobel-worker:latest"
 }
 
-# ─── RABBITMQ (externo) ────────────────────────────────────────
-
-variable "rabbitmq_host" {
-  description = "Hostname o IP del servidor RabbitMQ externo"
-  type        = string
-  validation {
-    condition     = length(var.rabbitmq_host) > 0
-    error_message = "rabbitmq_host no puede estar vacío."
-  }
-}
-
-variable "rabbitmq_port" {
-  description = "Puerto AMQP del servidor RabbitMQ"
-  type        = number
-  default     = 5672
-}

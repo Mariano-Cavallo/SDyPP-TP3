@@ -36,7 +36,12 @@ output "worker_log_commands" {
   ]
 }
 
-output "rabbitmq_host" {
-  description = "RabbitMQ host configurado en los workers"
-  value       = var.rabbitmq_host
+output "rabbitmq_internal_ip" {
+  description = "IP interna de la VM RabbitMQ"
+  value       = google_compute_instance.rabbitmq.network_interface[0].network_ip
+}
+
+output "rabbitmq_management_url" {
+  description = "URL del panel de administración de RabbitMQ"
+  value       = "http://${google_compute_instance.rabbitmq.network_interface[0].access_config[0].nat_ip}:15672"
 }

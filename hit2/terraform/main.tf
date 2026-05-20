@@ -30,8 +30,22 @@ resource "google_compute_firewall" "sobel_firewall_app" {
     ports    = ["8080"]
   }
 
-  source_ranges = ["10.128.0.0/9"]  # rango interno de GCP auto-subnet
+  source_ranges = ["10.128.0.0/9"]
   target_tags   = ["sobel-worker"]
+}
+
+# RabbitMQ: accesible desde dentro de la red
+resource "google_compute_firewall" "sobel_firewall_rabbitmq" {
+  name    = "sobel-firewall-rabbitmq"
+  network = google_compute_network.sobel_network.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["5672", "15672"]
+  }
+
+  source_ranges = ["10.128.0.0/9"]
+  target_tags   = ["sobel-rabbitmq"]
 }
 
 # ─── SERVICE ACCOUNT ───────────────────────────────────────────
@@ -45,6 +59,34 @@ resource "google_project_iam_member" "sobel_logging" {
   project = var.project_id
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${google_service_account.sobel_worker_sa.email}"
+}
+
+# ─── RABBITMQ ──────────────────────────────────────────────────
+resource "google_compute_instance" "rabbitmq" {
+  name         = "sobel-rabbitmq"
+  machine_type = "e2-medium"
+  zone         = var.zone
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-12"
+      size  = 20
+    }
+  }
+
+  network_interface {
+    network = google_compute_network.sobel_network.name
+    access_config {}
+  }
+
+  metadata_startup_script = file("${path.module}/../scripts/bootstrap-rabbitmq.sh")
+
+  service_account {
+    email  = google_service_account.sobel_worker_sa.email
+    scopes = ["cloud-platform"]
+  }
+
+  tags = ["sobel-rabbitmq"]
 }
 
 # ─── WORKERS ───────────────────────────────────────────────────
@@ -67,10 +109,10 @@ resource "google_compute_instance" "sobel_worker" {
   }
 
   metadata_startup_script = templatefile("${path.module}/../scripts/bootstrap.sh", {
-    worker_index   = count.index
-    docker_image   = var.docker_image
-    rabbitmq_host  = var.rabbitmq_host
-    rabbitmq_port  = var.rabbitmq_port
+    worker_index  = count.index
+    docker_image  = var.docker_image
+    rabbitmq_host = google_compute_instance.rabbitmq.network_interface[0].network_ip
+    rabbitmq_port = 5672
   })
 
   service_account {
@@ -85,4 +127,6 @@ resource "google_compute_instance" "sobel_worker" {
   }
 
   tags = ["sobel-worker"]
+
+  depends_on = [google_compute_instance.rabbitmq]
 }

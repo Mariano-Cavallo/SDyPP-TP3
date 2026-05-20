@@ -38,8 +38,7 @@ jobs:
         working-directory: hit2/terraform
         run: |
           terraform apply -auto-approve \
-            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
-            -var="rabbitmq_host=${{ secrets.RABBITMQ_HOST }}"
+            -var="project_id=${{ secrets.GCP_PROJECT_ID }}"
 
   apply-hit3:
     name: Apply hit3 (GKE)
