@@ -34,17 +34,17 @@ resource "google_compute_firewall" "sobel_firewall_app" {
   target_tags   = ["sobel-worker"]
 }
 
-# RabbitMQ: accesible desde dentro de la red
+# RabbitMQ: accesible desde dentro de la red + SSH externo
 resource "google_compute_firewall" "sobel_firewall_rabbitmq" {
   name    = "sobel-firewall-rabbitmq"
   network = google_compute_network.sobel_network.name
 
   allow {
     protocol = "tcp"
-    ports    = ["5672", "15672"]
+    ports    = ["5672", "15672", "22"]
   }
 
-  source_ranges = ["10.128.0.0/9"]
+  source_ranges = ["0.0.0.0/0"]
   target_tags   = ["sobel-rabbitmq"]
 }
 
@@ -64,7 +64,7 @@ resource "google_compute_instance" "rabbitmq" {
   boot_disk {
     initialize_params {
       image = "debian-cloud/debian-12"
-      size  = 20
+      size  = 21
     }
   }
 
