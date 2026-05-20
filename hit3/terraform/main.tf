@@ -11,6 +11,14 @@ resource "google_container_cluster" "primary" {
   ip_allocation_policy {}
 
   deletion_protection = false
+
+  # Forzar pd-standard en el pool temporal que GKE crea antes de borrarlo
+  node_config {
+    machine_type = "e2-medium"
+    disk_type    = "pd-standard"
+    disk_size_gb = 30
+    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+  }
 }
 
 # Pool para infraestructura: RabbitMQ, Prometheus, Grafana
