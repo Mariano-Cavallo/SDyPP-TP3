@@ -14,8 +14,6 @@ jobs:
   apply-hit2:
     name: Apply hit2 (VMs GCE)
     runs-on: ubuntu-latest
-    # Solo se ejecuta si hay cambios en hit2/terraform
-    if: contains(github.event.commits[0].modified, 'hit2/terraform') || contains(github.event.commits[0].added, 'hit2/terraform')
 
     steps:
       - uses: actions/checkout@v4
