@@ -4,15 +4,16 @@ metadata:
   name: sobel-workers
   namespace: monitoring
   labels:
-    # Este label hace que Prometheus Operator lo detecte automáticamente
     release: kube-prometheus
 spec:
   namespaceSelector:
     matchNames:
       - sobel
   selector:
-    matchLabels:
-      app: worker
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [worker, centralizador]
   endpoints:
     - port: metrics
       path: /metrics

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: centralizador
+  namespace: sobel
+  labels:
+    app: centralizador
+spec:
+  selector:
+    app: centralizador
+  ports:
+    - name: metrics
+      port: 8001
+      targetPort: 8001
